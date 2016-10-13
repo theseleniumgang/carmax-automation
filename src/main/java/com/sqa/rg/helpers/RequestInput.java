@@ -157,6 +157,34 @@ public class RequestInput {
 		return num;
 	}
 
+	public static double getDouble(String question, String unacceptableErrorMessage, double min, double max) {
+		String input = null;
+		double resultValue;
+		boolean validInt = false;
+		while (true) {
+			try {
+				System.out.print(question);
+				input = scanner.nextLine();
+				resultValue = Double.parseDouble(input);
+
+				if (resultValue >= min && resultValue <= max) {
+					validInt = true;
+				}
+				if (!validInt) {
+					throw new InvalidAcceptableNumberException();
+				}
+				return resultValue;
+
+			} catch (NumberFormatException e) {
+				System.out.println("You have not provided a valid double type (" + input + ")");
+				continue;
+			} catch (InvalidAcceptableNumberException e) {
+				String message = String.format(unacceptableErrorMessage, min, max);
+				System.out.println(message);
+			}
+		}
+	}
+
 	/**
 	 * Static Helper Method which asks usera specified question and as long as
 	 * they give a valid number will return the number as an int type variable.
