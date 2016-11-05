@@ -12,6 +12,8 @@ package com.sqa.rg.helpers;
 
 import java.util.*;
 
+import com.sqa.rg.helpers.exceptions.*;
+
 /**
  * RequestInput
  *
