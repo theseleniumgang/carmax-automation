@@ -13,8 +13,9 @@ package com.sqa.rg.helpers;
 import java.io.*;
 import java.sql.*;
 import java.util.*;
+import java.util.regex.*;
 
-import org.apache.log4j.*;
+import org.apache.poi.hssf.usermodel.*;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.*;
 
@@ -33,59 +34,61 @@ import com.sqa.rg.helpers.exceptions.*;
  *
  */
 public class DataHelper {
-	public static Object[][] sampleData = {
-			{ "1", "Lorne G", "3630 William Avenue, Miami, FL 33133", "41", "QA Engineer" },
-			{ "2", "Janet Hill", "465 NE 26th Street Miami, FL 33136", "23", "Lawyer" },
-			{ "3", "Sam Privit", "2215 E 38th Ave, Denver, CO 80205 ", "40", "Farmer" },
-			{ "4", "Lottie Downey", "3401 NE 38th Ave, Aventura, FL 33180", "71", "Principal" },
-			{ "5", "Roy Allen", "4555 Las Vegas Blvd N, Las Vegas | NV 89115-0558", "10", "Musician" } };
-
-	private static Logger log = Logger.getLogger(DataHelper.class);
-
-	public static void displayData(Object[][] data) {
-		// Display the data Object[][] to console using the logger.
-		for (int i = 0; i < data.length; i++) {
-			String dataLine = "";
-			for (int j = 0; j < data[i].length; j++) {
-				dataLine += data[i][j];
-				dataLine += "  \t";
-			}
-			getLog().info(dataLine.trim());
-		}
-	}
-
-	public static void displayData(Object[][] data, Logger logger) {
-		// Display the data Object[][] to console using the logger.
+	public static Object[][] evalDatabaseTable(String driverClassString, String databaseStringUrl, String username,
+			String password, String tableName) throws ClassNotFoundException, SQLException, DataTypesException {
+		return evalDatabaseTable(driverClassString, databaseStringUrl, username, password, tableName, 0, 0, null);
 	}
 
 	public static Object[][] evalDatabaseTable(String driverClassString, String databaseStringUrl, String username,
-			String password, String tableName) throws ClassNotFoundException, SQLException {
-
-		String executeSql = "select * from " + tableName;
+			String password, String tableName, int rowOffset, int colOffset, DataType[] dataTypes)
+			throws DataTypesException, ClassNotFoundException, SQLException {
+		Object[][] myData;
+		ArrayList<Object> myArrayData = new ArrayList<Object>();
 		Class.forName(driverClassString);
 		Connection dbconn = DriverManager.getConnection(databaseStringUrl, username, password);
 		Statement stmt = dbconn.createStatement();
-		ResultSet rs = stmt.executeQuery(executeSql);
-		int columnCount = rs.getMetaData().getColumnCount();
-
-		List<Object[]> dataCollection = new ArrayList<>();
-		while (rs.next()) {
-			Object[] rowData = new Object[columnCount];
-			for (int i = 0; i < rowData.length; i++) {
-				rowData[i] = rs.getString(i + 1);
+		ResultSet rs = stmt.executeQuery("select * from " + tableName);
+		int numOfColumns = rs.getMetaData().getColumnCount();
+		if (dataTypes != null) {
+			if (dataTypes.length != numOfColumns) {
+				throw new DataTypesCountException();
 			}
-			dataCollection.add(rowData);
 		}
-
-		Object[][] data = new Object[dataCollection.size()][];
-		for (int i = 0; i < data.length; i++) {
-			data[i] = dataCollection.get(i);
+		int curRow = 1;
+		while (rs.next()) {
+			if (curRow > rowOffset) {
+				Object[] rowData = new Object[numOfColumns - colOffset];
+				for (int i = 0, j = colOffset; i < rowData.length; i++) {
+					try {
+						switch (dataTypes[i]) {
+						case STRING:
+							rowData[i] = rs.getString(i + colOffset + 1);
+							break;
+						case INT:
+							rowData[i] = rs.getInt(i + colOffset + 1);
+							break;
+						default:
+							break;
+						}
+					} catch (Exception e) {
+						System.out.println("Error in conversion...");
+						e.printStackTrace();
+						throw new DataTypesException();
+					}
+				}
+				myArrayData.add(rowData);
+			}
+			curRow++;
 		}
-
+		myData = new Object[myArrayData.size()][];
+		for (int i = 0; i < myData.length; i++) {
+			myData[i] = (Object[]) myArrayData.get(i);
+		}
+		// Step 5
 		rs.close();
 		stmt.close();
 		dbconn.close();
-		return data;
+		return myData;
 	}
 
 	public static Object[][] getExcelFileData(String fileLocation, String fileName, Boolean hasLabels)
@@ -106,8 +109,78 @@ public class DataHelper {
 		return resultsObject;
 	}
 
-	private static Logger getLog() {
-		return log;
+	public static Object[][] getTextFileData(String fileName) {
+		return getTextFileData("", fileName, TextFormat.CSV, false, null);
+	}
+
+	public static Object[][] getTextFileData(String fileLocation, String fileName, TextFormat textFormat) {
+		return getTextFileData(fileLocation, fileName, textFormat, false, null);
+	}
+
+	public static Object[][] getTextFileData(String fileLocation, String fileName, TextFormat textFormat,
+			Boolean hasLabels, DataType[] dataTypes) {
+		Object[][] data;
+		ArrayList<String> lines = openFileAndCollectData(fileLocation, fileName);
+		switch (textFormat) {
+		case CSV:
+			data = parseCSVData(lines, hasLabels, dataTypes);
+			break;
+		case XML:
+			data = parseXMLData(lines, hasLabels);
+			break;
+		case TAB:
+			data = parseTabData(lines, hasLabels);
+			break;
+		case JSON:
+			data = parseJSONData(lines, hasLabels);
+			break;
+		default:
+			data = null;
+			break;
+		}
+		return data;
+	}
+
+	public static Object[][] getTextFileData(String fileLocation, String fileName, TextFormat textFormat,
+			DataType[] dataTypes) {
+		return getTextFileData(fileLocation, fileName, textFormat, false, dataTypes);
+	}
+
+	private static Object convertDataType(String parameter, DataType dataType)
+			throws BooleanFormatException, CharacterCountFormatException {
+		Object data = null;
+		try {
+			switch (dataType) {
+			case STRING:
+				data = parameter;
+				break;
+			case CHAR:
+				if (parameter.length() > 1) {
+					throw new CharacterCountFormatException();
+				}
+				data = parameter.charAt(0);
+				break;
+			case DOUBLE:
+				data = Double.parseDouble(parameter);
+			case FLOAT:
+				data = Float.parseFloat(parameter);
+			case INT:
+				data = Integer.parseInt(parameter);
+			case BOOLEAN:
+				if (parameter.equalsIgnoreCase("true") | parameter.equalsIgnoreCase("false")) {
+					data = Boolean.parseBoolean(parameter);
+				} else {
+					throw new BooleanFormatException();
+				}
+			default:
+				break;
+			}
+		} catch (NumberFormatException | BooleanFormatException | CharacterCountFormatException e) {
+			System.out.println("Converstion issue when converting String to " + dataType + "(" + parameter
+					+ ")convertDataType: DataHelper.class");
+			System.out.println(e.getMessage());
+		}
+		return data;
 	}
 
 	private static ArrayList<Object> getNewExcelFileResults(String fileLocation, String fileName, Boolean hasLabels) {
@@ -156,13 +229,19 @@ public class DataHelper {
 		return results;
 	}
 
+	/**
+	 * @param fileLocation
+	 * @param fileName
+	 * @param hasLabels
+	 * @return
+	 */
 	private static ArrayList<Object> getOldExcelFileResults(String fileLocation, String fileName, Boolean hasLabels) {
 		ArrayList<Object> results = new ArrayList<Object>();
 		try {
 			String fullFilePath = fileLocation + fileName;
 			InputStream newExcelFormatFile = new FileInputStream(new File(fullFilePath));
-			XSSFWorkbook workbook = new XSSFWorkbook(newExcelFormatFile);
-			XSSFSheet sheet = workbook.getSheetAt(0);
+			HSSFWorkbook workbook = new HSSFWorkbook(newExcelFormatFile);
+			HSSFSheet sheet = workbook.getSheetAt(0);
 			Iterator<Row> rowIterator = sheet.iterator();
 			if (hasLabels) {
 				rowIterator.next();
@@ -179,8 +258,8 @@ public class DataHelper {
 						rowData.add(cell.getBooleanCellValue());
 						break;
 					case Cell.CELL_TYPE_NUMERIC:
-						System.out.print(cell.getNumericCellValue() + "\t\t\t");
-						rowData.add(cell.getNumericCellValue());
+						System.out.print((int) cell.getNumericCellValue() + "\t\t\t");
+						rowData.add((int) cell.getNumericCellValue());
 						break;
 					case Cell.CELL_TYPE_STRING:
 						System.out.print(cell.getStringCellValue() + "\t\t\t");
@@ -194,6 +273,9 @@ public class DataHelper {
 				System.out.println("");
 			}
 			newExcelFormatFile.close();
+			FileOutputStream out = new FileOutputStream(new File("src/main/resources/excel-output.xlsx"));
+			workbook.write(out);
+			out.close();
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -201,4 +283,73 @@ public class DataHelper {
 		}
 		return results;
 	}
+
+	private static ArrayList<String> openFileAndCollectData(String fileLocation, String fileName) {
+		String fullFilePath = fileLocation + fileName;
+		ArrayList<String> dataLines = new ArrayList<String>();
+		try {
+			FileReader fileReader = new FileReader(fullFilePath);
+			BufferedReader bufferedReader = new BufferedReader(fileReader);
+			String line = bufferedReader.readLine();
+			while (line != null) {
+				dataLines.add(line);
+				line = bufferedReader.readLine();
+			}
+			bufferedReader.close();
+		} catch (FileNotFoundException ex) {
+			System.out.println("Unable to open file '" + fullFilePath + "'");
+		} catch (IOException ex) {
+			System.out.println("Error reading file '" + fullFilePath + "'");
+		}
+		return dataLines;
+	}
+
+	private static Object[][] parseCSVData(ArrayList<String> lines, boolean hasLabels, DataType[] dataTypes) {
+		ArrayList<Object> results = new ArrayList<Object>();
+		if (hasLabels) {
+			lines.remove(0);
+		}
+		String pattern = "(,*)([a-zA-Z0-9\\s-]+)(,*)";
+		Pattern r = Pattern.compile(pattern);
+		for (int i = 0; i < lines.size(); i++) {
+			int curDataType = 0;
+			ArrayList<Object> curMatches = new ArrayList<Object>();
+			Matcher m = r.matcher(lines.get(i));
+			while (m.find()) {
+				if (dataTypes.length > 0) {
+					try {
+						curMatches.add(convertDataType(m.group(2).trim(), dataTypes[curDataType]));
+					} catch (Exception e) {
+						System.out.println("DataTypes provided do not match parsed data results.");
+					}
+				} else {
+					curMatches.add(m.group(2).trim());
+				}
+				curDataType++;
+			}
+			Object[] resultsObj = new Object[curMatches.size()];
+			curMatches.toArray(resultsObj);
+			results.add(resultsObj);
+		}
+		System.out.println("Results:" + results);
+		Object[][] resultsObj = new Object[results.size()][];
+		results.toArray(resultsObj);
+		return resultsObj;
+	}
+
+	private static Object[][] parseJSONData(ArrayList<String> lines, Boolean hasLabels) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	private static Object[][] parseTabData(ArrayList<String> lines, Boolean hasLabels) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	private static Object[][] parseXMLData(ArrayList<String> lines, Boolean hasLabels) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }
