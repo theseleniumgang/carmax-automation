@@ -67,6 +67,9 @@ public class DataHelper {
 						case INT:
 							rowData[i] = rs.getInt(i + colOffset + 1);
 							break;
+						case DOUBLE:
+							rowData[i] = rs.getDouble(i + colOffset + 1);
+							break;
 						default:
 							break;
 						}
@@ -162,16 +165,20 @@ public class DataHelper {
 				break;
 			case DOUBLE:
 				data = Double.parseDouble(parameter);
+				break;
 			case FLOAT:
 				data = Float.parseFloat(parameter);
+				break;
 			case INT:
 				data = Integer.parseInt(parameter);
+				break;
 			case BOOLEAN:
 				if (parameter.equalsIgnoreCase("true") | parameter.equalsIgnoreCase("false")) {
 					data = Boolean.parseBoolean(parameter);
 				} else {
 					throw new BooleanFormatException();
 				}
+				break;
 			default:
 				break;
 			}
@@ -258,8 +265,14 @@ public class DataHelper {
 						rowData.add(cell.getBooleanCellValue());
 						break;
 					case Cell.CELL_TYPE_NUMERIC:
-						System.out.print((int) cell.getNumericCellValue() + "\t\t\t");
-						rowData.add((int) cell.getNumericCellValue());
+						double doubleVal = cell.getNumericCellValue();
+						if (Math.floor(doubleVal) == doubleVal) {
+							System.out.print((int) cell.getNumericCellValue() + "\t\t\t");
+							rowData.add((int) cell.getNumericCellValue());
+						} else {
+							System.out.print(cell.getNumericCellValue() + "\t\t\t");
+							rowData.add(cell.getNumericCellValue());
+						}
 						break;
 					case Cell.CELL_TYPE_STRING:
 						System.out.print(cell.getStringCellValue() + "\t\t\t");
@@ -309,7 +322,7 @@ public class DataHelper {
 		if (hasLabels) {
 			lines.remove(0);
 		}
-		String pattern = "(,*)([a-zA-Z0-9\\s-]+)(,*)";
+		String pattern = "(,*)([a-zA-Z0-9.\\s-]+)(,*)";
 		Pattern r = Pattern.compile(pattern);
 		for (int i = 0; i < lines.size(); i++) {
 			int curDataType = 0;
@@ -351,5 +364,4 @@ public class DataHelper {
 		// TODO Auto-generated method stub
 		return null;
 	}
-
 }
