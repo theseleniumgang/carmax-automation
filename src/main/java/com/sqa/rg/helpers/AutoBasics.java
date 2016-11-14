@@ -30,9 +30,36 @@ import org.openqa.selenium.*;
  *
  */
 public class AutoBasics {
+	private static final String DEFAULT_CONFIG_PROPERTIES_LOCATION = "src/main/resources/config.properties";
+	private static final String DEFAULT_CONFIG_SAVE_LOCATION = "src/main/resources/saved.properties";
 	private static final String DEFAULT_SCREENSHOT_FILENAME = "screenshot";
 	private static final String DEFAULT_SCREENSHOT_SAVE_LOCATION = "screenshots/";
 	private static final String FILE_EXTENSION = ".jpg";
+
+	public static Properties evalProperties() throws IOException {
+		return evalProperties(DEFAULT_CONFIG_PROPERTIES_LOCATION);
+	}
+
+	public static Properties evalProperties(String fileLocation) throws IOException {
+		Properties props = new Properties();
+		File file = new File(fileLocation);
+		FileInputStream fis = new FileInputStream(file);
+		props.load(fis);
+		return props;
+	}
+
+	public static String evalProperty(Properties props, String propKey) {
+		return props.getProperty(propKey);
+	}
+
+	public static String evalProperty(String propKey) throws IOException {
+		return evalProperty(DEFAULT_CONFIG_PROPERTIES_LOCATION, propKey);
+	}
+
+	public static String evalProperty(String fileLocation, String propKey) throws IOException {
+		Properties props = evalProperties(fileLocation);
+		return evalProperty(props, propKey);
+	}
 
 	public static List<WebElement> getByTagName(WebDriver driver, String tagName) {
 		List<WebElement> elements = driver.findElements(By.tagName(tagName));
@@ -97,5 +124,22 @@ public class AutoBasics {
 			return false;
 		}
 		return true;
+	}
+
+	public static boolean writeProperties(Properties props, String key, String value) throws IOException {
+		return writeProperties(props, DEFAULT_CONFIG_SAVE_LOCATION, key, value);
+	}
+
+	public static boolean writeProperties(Properties props, String fileLocation, String key, String value)
+			throws IOException {
+		try {
+			props.setProperty(key, value);
+			File saveFile = new File(fileLocation);
+			FileOutputStream fileOutputStream = new FileOutputStream(saveFile);
+			props.store(fileOutputStream, "Saved Config Details Ron.");
+			return true;
+		} catch (Exception e) {
+			return false;
+		}
 	}
 }
