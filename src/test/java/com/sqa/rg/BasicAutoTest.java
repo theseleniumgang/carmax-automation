@@ -68,7 +68,7 @@ public class BasicAutoTest {
 	}
 
 	@BeforeClass(enabled = false, groups = { "chrome-setup" })
-	public void setupChromeTest() {
+	public void setupChrome() {
 		getLog().info("Setting up Chrome driver system property");
 		System.setProperty("webdriver.chrome.driver", "drivers/chromedriver");
 		getLog().info("Setting up Chrome driver.");
@@ -84,7 +84,7 @@ public class BasicAutoTest {
 	}
 
 	@BeforeClass(enabled = true, groups = { "firefox-setup" })
-	public void setupFirefoxTest() {
+	public void setupFirefox() {
 		getLog().info("Setting up driver.");
 		this.driver = new FirefoxDriver();
 		getLog().trace("Setting implicit wait to 30 seconds.");
@@ -98,7 +98,7 @@ public class BasicAutoTest {
 	}
 
 	@BeforeClass(enabled = false, groups = { "safari-setup" })
-	public void setupSafariTest() {
+	public void setupSafari() {
 		getLog().info("Setting up Safari driver.");
 		this.driver = new SafariDriver();
 		getLog().trace("Setting implicit wait to 30 seconds.");
