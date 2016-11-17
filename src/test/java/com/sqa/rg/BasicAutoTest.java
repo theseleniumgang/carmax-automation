@@ -38,33 +38,24 @@ public class BasicAutoTest {
 	private WebDriver driver;
 	private Logger log = Logger.getLogger(BasicAutoTest.class);
 
-	/**
-	 * @param baseURL
-	 * @param driver
-	 */
 	public BasicAutoTest(String baseURL) {
 		this.baseURL = baseURL;
 	}
 
-	/**
-	 * @return the baseURL
-	 */
 	public String getBaseURL() {
 		return this.baseURL;
 	}
 
-	/**
-	 * @return the driver
-	 */
 	public WebDriver getDriver() {
 		return this.driver;
 	}
 
-	/**
-	 * @return the log
-	 */
 	public Logger getLog() {
 		return this.log;
+	}
+
+	public boolean isPresent(By locator) {
+		return AutoBasics.isElementPresent(getDriver(), locator, getLog());
 	}
 
 	@BeforeClass(enabled = false, groups = { "chrome-setup" })
