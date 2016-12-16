@@ -15,4 +15,4 @@
 
 > Java Project for SQA Boot Camp October 3.
 
-[Ronak Gavandi](https://github.com/ronakg11/)
+[Selenium Guys](https://github.com/theseleniumgang/)
